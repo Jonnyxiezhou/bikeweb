@@ -1,0 +1,114 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>45分钟动感单车跟练｜带倒计时</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#121212;color:#fff;font-size:20px;padding:25px;text-align:center;font-family:微软雅黑}
+.box{margin:35px auto;padding:25px;border:2px solid #00ccff;border-radius:14px;max-width:560px}
+.info{color:#ff7733;font-size:26px;margin:12px 0;font-weight:bold}
+.timebox{color:#3cf;font-size:22px;margin:15px 0; padding:10px; border:1px solid #3cf; border-radius:8px}
+.ctrl button{padding:14px 32px;margin:10px;font-size:19px;background:#0cf;border:0;border-radius:9px;color:#000;font-weight:bold}
+.tip{color:#aaa;font-size:15px;margin-top:20px}
+</style>
+</head>
+<body>
+<h1>🔥45min动感单车跟练｜口令+曲目+倒计时</h1>
+<div class="ctrl">
+<button onclick="start()">开始整节课</button>
+<button onclick="pause()">暂停课程</button>
+</div>
+<div class="box">
+<div>当前训练阶段：<span id="stage">未开课</span></div>
+<div class="info">推荐阻力：<span id="zuli">-</span>档｜踏频：<span id="tp">-</span>圈/分</div>
+<div class="timebox">
+本环节剩余：<span id="leftSec">00:00</span>｜课程总剩余：<span id="allLeft">00:00</span>
+</div>
+<div style="margin-top:22px">教练实时口令：<div id="talk">准备就绪，点击开始开启骑行</div></div>
+</div>
+<div class="tip">MP3与html放同一文件夹，文件名和代码一致自动切歌</div>
+<audio id="bgm">
+<script>
+let list = [
+[480,"热身第一段｜Feel So Close",2,"64","坐稳腰背挺直，脚掌全踩踏板，坐姿匀速踩踏，放松肩颈膝盖，跟随鼓点平稳骑行","./assets/Feel So Close.mp3"],
+[480,"热身第二段｜Abracadabra",3,"64","阻力+1，20秒加速快骑+40秒匀速慢骑，循环两组，膝盖不锁死","./assets/Abracadabra.mp3"],
+[300,"稳态有氧1｜Espresso",3,"65","全程坐姿，均匀鼻吸嘴呼，稳定踏频，平稳燃脂","./assets/Espresso.mp3"],
+[300,"稳态有氧2｜Levitating",4,"67","阻力上调，小幅发力，微微气喘，保持高效燃脂心率","./assets/Levitating.mp3"],
+[300,"稳态有氧3｜Break My Heart",3,"56","降阻力缓冲，放缓踩踏，放松大腿肌群，平稳回落心率","./assets/Break My Heart.mp3"],
+[30,"间歇冲刺｜Till I Collapse",7,"95","起身站姿，重心下沉，满阻力全力冲刺，大口深呼吸","./assets/Till I Collapse.mp3"],
+[150,"间歇休整｜Pumped Up Kicks",3,"62","落回座椅，降阻慢骑，调整呼吸，等待下一轮冲刺","./assets/Pumped Up Kicks.mp3"],
+[30,"间歇冲刺｜Till I Collapse",7,"95","站姿全力踩踏，收紧核心，最大化腿部发力","./assets/Till I Collapse.mp3"],
+[150,"间歇休整｜Pumped Up Kicks",3,"62","放慢节奏，放松臀部小腿，恢复体力","./assets/Pumped Up Kicks.mp3"],
+[30,"间歇冲刺｜Till I Collapse",7,"95","身体前倾，加大蹬踏力度，保持高踏频","./assets/Till I Collapse.mp3"],
+[150,"间歇休整｜Pumped Up Kicks",3,"62","匀速调整呼吸，缓解乳酸堆积","./assets/Pumped Up Kicks.mp3"],
+[30,"间歇冲刺｜Till I Collapse",7,"95","最后一轮冲刺，坚持住，全身协同发力","./assets/Till I Collapse.mp3"],
+[150,"间歇休整｜Pumped Up Kicks",3,"62","休整完毕，过渡爬坡训练","./assets/Pumped Up Kicks.mp3"],
+[420,"臀腿爬坡｜Sugar",6,"56","大阻力慢速坐姿蹬踏，臀部主导发力，副歌起身站姿爬坡30秒","./assets/Sugar.mp3"],
+[180,"冷身放松｜Perfect",1,"48","阻力调最低，慢速放松骑行，活动肩颈，课后拉伸大小腿","./assets/Perfect.mp3"]
+];
+let totalAll = list.reduce((sum,item)=>sum+item[0],0);
+let cur=0,timer=null,countTimer=null;
+let nowLeft=0;
+let allRemain=totalAll;
+
+let stage=document.getElementById('stage');
+let zuli=document.getElementById('zuli');
+let tp=document.getElementById('tp');
+let talk=document.getElementById('talk');
+let bgm=document.getElementById('bgm');
+let leftSec=document.getElementById('leftSec');
+let allLeft=document.getElementById('allLeft');
+
+function fmtTime(s){
+  let m=Math.floor(s/60);
+  let ss=s%60;
+  return String(m).padStart(2,'0')+":"+String(ss).padStart(2,'0');
+}
+
+function start(){
+  clearTimeout(timer);
+  clearInterval(countTimer);
+  cur=0;
+  allRemain=totalAll;
+  run();
+}
+function run(){
+  if(cur>=list.length){
+    stage.innerText="✅整节单车课全部结束！";
+    talk.innerText="下课记得充分拉伸5分钟";
+    leftSec.innerText="00:00";
+    allLeft.innerText="00:00";
+    clearInterval(countTimer);
+    return;
+  }
+  let item=list[cur];
+  stage.innerText=item[1];
+  zuli.innerText=item[2];
+  tp.innerText=item[3];
+  talk.innerText=item[4];
+  bgm.src=item[5];
+  bgm.play();
+  nowLeft=item[0];
+  clearInterval(countTimer);
+  countTimer=setInterval(()=>{
+    nowLeft--;
+    allRemain--;
+    leftSec.innerText=fmtTime(nowLeft);
+    allLeft.innerText=fmtTime(allRemain);
+    if(nowLeft<=0){
+      clearInterval(countTimer);
+    }
+  },1000);
+  let t=item[0];
+  timer=setTimeout(()=>{cur++;run();},t*1000);
+}
+function pause(){
+  clearTimeout(timer);
+  clearInterval(countTimer);
+  bgm.pause();
+}
+</script>
+</body>
+</html>
